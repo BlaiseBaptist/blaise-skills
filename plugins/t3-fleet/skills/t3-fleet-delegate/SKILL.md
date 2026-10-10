@@ -39,9 +39,9 @@ can judge, including which subagents it uses. Trust it.
 
 ## Results
 
-Your thread gets a `[t3-fleet]` message when the child finishes. Then `read`
-the thread (`--full` for every message), verify what it claims, and report.
-Its commits stay on its box until it pushes them.
+The child's final answer is its report, and it arrives in your thread as a
+`[t3-fleet]` message when the child finishes. Verify what it claims before
+you rely on it. Its commits stay on its box until it pushes them.
 
-Other commands take the box and thread ID: `wait`, `send` (follow-up on
-stdin), `interrupt`, `archive`, `unarchive`.
+Other commands take the box and thread ID: `send` (follow-up on stdin),
+`wait`, `read`, `interrupt`, `archive`, `unarchive`.

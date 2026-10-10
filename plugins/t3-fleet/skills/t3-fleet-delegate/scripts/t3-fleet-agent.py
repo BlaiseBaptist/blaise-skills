@@ -104,29 +104,23 @@ def caller():
     return row[0], json.loads(row[1])
 
 
-def summarize(thread, full=False):
+def summarize(thread):
+    """State plus the child's final answer, which is its report. Never the transcript."""
     turn = thread.get("latestTurn") or {}
     session = thread.get("session") or {}
     state = turn.get("state", "pending")
     if session.get("status") == "error":
         state = "error"
-    messages = [{k: m.get(k) for k in ("id", "role", "text")} for m in thread.get("messages", [])]
-    result = {
+    answers = [m["text"] for m in thread.get("messages", []) if m.get("role") == "assistant" and m.get("text")]
+    return {
         "threadId": thread["id"],
         "title": thread["title"],
         "modelSelection": thread["modelSelection"],
-        "runtimeMode": thread["runtimeMode"],
         "worktreePath": thread.get("worktreePath"),
         "state": state,
-        "sessionStatus": session.get("status"),
         "lastError": session.get("lastError"),
+        "report": answers[-1] if answers else None,
     }
-    if full:
-        result["messages"] = messages
-    else:
-        answers = [m["text"] for m in messages if m["role"] == "assistant" and m.get("text")]
-        result["answer"] = answers[-1] if answers else None
-    return result
 
 
 def worker(request):
@@ -227,7 +221,7 @@ def worker(request):
                     return {"threadId": thread_id, "archived": True}
         deadline = time.monotonic() + request.get("wait", 0)
         while True:
-            result = summarize(read(thread_id), request.get("full", False))
+            result = summarize(read(thread_id))
             if result["state"] in TERMINAL or time.monotonic() >= deadline:
                 result["waitTimedOut"] = request.get("wait", 0) > 0 and result["state"] not in TERMINAL
                 return result
@@ -285,10 +279,12 @@ def watch(machine, thread_id, parent):
                 continue
             if result["state"] in TERMINAL:
                 break
-        text = ("[t3-fleet] Delegated thread %r on %s: %s.\nRead it with the delegate helper: %s read %s"
-                % (result.get("title"), machine, result["state"], machine, thread_id))
+        text = ("[t3-fleet] %r on %s, thread %s: %s."
+                % (result.get("title"), machine, thread_id, result["state"]))
         if result.get("lastError"):
             text += "\nError: " + str(result["lastError"])[:500]
+        if result.get("report"):
+            text += "\n\n" + result["report"]
         local = socket.gethostname().lower().split(".")[0]
         call(local, {"action": "send", "threadId": parent, "prompt": text})
     finally:
@@ -338,8 +334,6 @@ def main():
     for action in ("read", "wait", "send", "interrupt", "archive", "unarchive", "watch"):
         command = commands.add_parser(action)
         command.add_argument("thread_id", type=lambda value: str(uuid.UUID(value)))
-        if action in ("read", "wait"):
-            command.add_argument("--full", action="store_true", help="Include every message, not just the final answer")
         if action == "wait":
             command.add_argument("--wait", type=int, choices=range(1, 51), metavar="1..50", default=50)
         if action == "watch":
@@ -350,7 +344,7 @@ def main():
         watch(args.machine, args.thread_id, args.parent)
         return 0
 
-    request = {"action": args.action, "wait": getattr(args, "wait", 0), "full": getattr(args, "full", False)}
+    request = {"action": args.action, "wait": getattr(args, "wait", 0)}
     parent = None
     if args.action == "start":
         found = caller()
