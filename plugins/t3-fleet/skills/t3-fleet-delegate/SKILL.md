@@ -9,7 +9,8 @@ You don't need permission to delegate within the user's task. Tell the user in
 one line what you delegated, where, and to whom.
 
 Default split: **Opus plans, Sol executes, Luna does mechanical changes**,
-Sonnet stands in for Sol, Haiku does lookups. Choose as you see fit.
+Haiku does lookups. Sonnet stands in for Luna. If Sol is unavailable, Opus
+executes, handing parts to Sonnet. Choose as you see fit.
 
 `--effort` is what you judge the task needs; the helper runs the child one
 level lower. Models are `opus`, `sol`, `sonnet`, `luna`, `haiku`.
