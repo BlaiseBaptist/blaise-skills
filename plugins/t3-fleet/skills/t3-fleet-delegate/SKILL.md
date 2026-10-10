@@ -1,14 +1,16 @@
 ---
 name: t3-fleet-delegate
-description: Hand a task to another agent (Opus, Sol, Sonnet, Luna, or Haiku) running as a real T3 Code thread on a fleet box, then collect its result. The default split is Opus plans, Sol executes, Luna does mechanical changes. Use on your own initiative, without asking first, when a settled plan needs executing, when an independent review by a different model would catch what you might miss, when work splits into independent pieces that can run in parallel, when the work belongs on another box, or when a long job would otherwise block you. Also use when the user asks to delegate.
+description: For Opus and Sol only. Hand a task to another agent (Opus, Sol, Sonnet, Luna, or Haiku) running as a real T3 Code thread on a fleet box; your thread gets a message when it finishes. The default split is Opus plans, Sol executes, Luna does mechanical changes. Use on your own initiative, without asking first, when a settled plan needs executing, when an independent review by a different model would catch what you might miss, when work splits into independent pieces that can run in parallel, when the work belongs on another box, or when a long job would otherwise block you. Also use when the user asks to delegate.
 ---
 
 # Delegate to another T3 agent
 
-The bundled helper starts an ordinary, visible T3 thread on the chosen box. That
-box's T3 launches the provider with its own auth and config, and you collect the
-result with the same helper. The child is a peer, not a script runner: brief it
-the way you'd brief a capable colleague.
+The bundled helper starts an ordinary, visible T3 thread on the chosen box and
+posts a message into your thread when it finishes. The child is a peer, not a
+script runner: brief it the way you'd brief a capable colleague.
+
+Only Opus and Sol delegate. The helper checks which model is calling it and
+refuses everyone else.
 
 ## When to delegate
 
@@ -42,46 +44,20 @@ The default split: **Opus plans, Sol executes, Luna does mechanical changes.**
 Opus works out what to do and why, Sol carries out the plan, and repetitive or
 mechanical edits go to Luna. When Sol's work comes back, Opus reviews it.
 
-| Tier | Agent | `--provider` | `--model` | Role |
-|---|---|---|---|---|
-| 1 | Opus | `claudeAgent` | `claude-opus-5-5` | Planning, design, judgment calls; reviewing Sol's execution |
-| 2 | Sol | `codex` | `gpt-6.1-sol` | Executing a plan: implementation, debugging, ports; reviewing Opus's plans |
-| 3 | Sonnet | `claudeAgent` | `claude-sonnet-5-5` | Execution when Sol is unavailable or out of limits |
-| 4 | Luna | `codex` | `gpt-6-luna` | Mechanical changes: renames, bulk edits, follow-the-pattern rewrites |
-| 5 | Haiku | `claudeAgent` | `claude-haiku-5-5` | Lookups and smoke checks |
+| Agent | `--model` | Role |
+|---|---|---|
+| Opus | `opus` | Planning, design, judgment calls; reviewing Sol's execution |
+| Sol | `sol` | Executing a plan: implementation, debugging, ports; reviewing Opus's plans |
+| Sonnet | `sonnet` | Execution when Sol is unavailable or out of limits |
+| Luna | `luna` | Mechanical changes: renames, bulk edits, follow-the-pattern rewrites |
+| Haiku | `haiku` | Lookups and smoke checks |
 
-The split is a default, not a rule; choose as you see fit. Delegating to a
-stronger model than yourself is fine when the task needs it.
+The split is a default, not a rule; choose as you see fit, including a
+stronger model than yourself when the task needs it.
 
-Haiku 5.5 isn't in T3 0.0.45's model picker, but T3 passes the ID through and
-it runs.
-
-Pick effort for the task, not by habit. It can be higher or lower than your
-own.
-
-- `low`: mechanical edits, smoke tests, lookups.
-- `medium`: ordinary implementation, reviews of small changes.
-- `high`: subtle debugging, numerics or concurrency, reviews where a miss is
-  expensive.
-- `xhigh`: genuinely hard problems where `high` fell short. Slow and costly.
-
-**`max` is forbidden**, along with everything above it: Sol's `ultra` and
-Claude's `ultrathink` and `ultracode`. The helper refuses them.
-
-**Opus and Sol: take one level off.** Decide the effort you think the task
-needs, then delegate one level below it: `high` becomes `medium`, `medium`
-becomes `low`. `low` stays `low`. Other agents use the effort they judge
-right.
-
-Pass options as JSON with `--options`:
-
-- Claude: `effort`, `fastMode` (boolean), `contextWindow` (`200k` or `1m`,
-  default `1m`). Omitted `effort` means `medium`.
-- Codex: `reasoningEffort` and `serviceTier`. Always set `reasoningEffort`:
-  omitted, Sol runs at `low` and Luna at `medium`.
-
-The helper doesn't validate models. A model the box lacks fails at launch;
-read the result before assuming it ran as asked.
+Pass `--effort` (`low`, `medium`, `high`, or `xhigh`) as what you judge the
+task needs. The helper launches the child one level lower, because Opus and Sol
+tend to overestimate, and never uses `max`.
 
 ## Write the brief
 
@@ -126,17 +102,13 @@ concurrent edits, create a worktree on the target and pass
 python3 "$SKILL_DIR/scripts/t3-fleet-agent.py" archlinux projects
 ```
 
-Run the child with `--runtime-mode full-access` when you have full access
-yourself, as T3 sessions on the fleet do. The helper's default,
-`approval-required`, parks the child on its first approval with nobody watching
-the thread. Use it only when the user wants to approve the child's actions in
-T3 themselves.
+Children run with full access, like T3 sessions on the fleet. Add `--plan`
+to start one in plan mode.
 
 ```sh
 python3 "$SKILL_DIR/scripts/t3-fleet-agent.py" archlinux start \
   --cwd /home/blaise/T3_code_improvements \
-  --provider codex --model gpt-6.1-sol --options '{"reasoningEffort":"medium"}' \
-  --runtime-mode full-access \
+  --model sol --effort high \
   --title 'Sol: review sync timer change (for Opus)' \
   --request-id sync-timer-review-1 <<'TASK'
 I changed the claude-skills sync timer to run every 15 minutes instead of
@@ -155,15 +127,10 @@ new round needs a new ID. Keep the machine and thread ID it returns.
 
 ## Follow and collect
 
-Launch without `--wait` and poll in a background shell so you keep working.
-The helper waits at most 50 seconds per call and exits nonzero on an `error`
-state:
-
-```sh
-out=/tmp/t3-child-THREAD_UUID.json
-while python3 "$SKILL_DIR/scripts/t3-fleet-agent.py" archlinux wait THREAD_UUID --wait 50 >"$out" \
-  && grep -q '"waitTimedOut": true' "$out"; do :; done
-```
+Carry on with other work. When the child finishes, your thread gets a
+`[t3-fleet]` message with its state and thread ID, which starts a new turn if
+you're idle. Then `read` it; that returns the final answer, or every message
+with `--full`.
 
 Then read the result and **check it before you relay it**. `completed` means
 the turn ended, not that it succeeded. Spot-check concrete claims: the branch
@@ -175,13 +142,11 @@ The child's commits stay on its box. If you need them elsewhere, ask the child
 to push a branch, or fetch it over SSH:
 `git fetch ssh://blaise@<host>.tail2b35ba.ts.net/<path> <branch>`.
 
-The helper can't send a follow-up into an existing thread yet. Either continue
-in T3 yourself, or start a new round with a new request ID whose brief includes
-what came back.
-
 Other commands, each taking the machine then the thread ID:
 
-- `read`: snapshot without waiting.
+- `read`: the child's state and final answer.
+- `wait`: like `read`, but waits up to 50 seconds for it to finish.
+- `send`: a follow-up message, read from stdin.
 - `interrupt`: cancel when asked.
 - `archive` / `unarchive`: put away finished threads. An archived thread must
   be restored before `read` works.
@@ -203,8 +168,10 @@ The helper supports **T3 0.0.45** and refuses other versions. If it rejects a
 newer T3, check that version's API and update the helper; don't remove the
 guard.
 
-These are plain sidebar threads with no parent link or notification. Track the
-relationship in the title. A shell-launched `codex exec` or `claude -p` is not
+These are plain sidebar threads with no parent link; track the relationship in
+the title. The completion message comes from a watcher process on your box. It
+gives up after a day, or after half an hour of the child's box being
+unreachable, and posts that instead. A shell-launched `codex exec` or `claude -p` is not
 a substitute: it bypasses T3's thread ownership and visibility.
 
 Each command issues a two-minute T3 bearer on the target and revokes it
