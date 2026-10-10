@@ -1,6 +1,6 @@
 ---
 name: t3-fleet-delegate
-description: Opus and Sol delegate work to each other as T3 threads on fleet boxes. Use on your own initiative whenever it would help.
+description: Use whenever handing work from Opus to Sol or Sol to Opus would help.
 ---
 
 # Delegate to another T3 agent
