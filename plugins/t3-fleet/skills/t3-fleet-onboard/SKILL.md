@@ -7,8 +7,7 @@ description: Onboarding, healing, or running `t3` commands on a T3 Code fleet bo
 
 This skill works in Claude (`/t3-fleet:t3-fleet-onboard`) and Codex
 (`$t3-fleet:t3-fleet-onboard`). For the shell commands below, set `SKILL_DIR` to the
-absolute directory containing the loaded `SKILL.md`; shared sync also exposes
-it at `$HOME/.agents/skills/t3-fleet-onboard`.
+absolute directory containing the loaded `SKILL.md`.
 
 Onboards (or re-verifies / heals) one machine in the T3 Code fleet. Run from
 `archlinux` over SSH; `$H` is the target hostname. It is idempotent: re-running
@@ -287,12 +286,11 @@ claude plugin install desktop@blaise-skills --scope user
 
 ### Keeping it in sync afterwards
 
-The installed Claude plugins are the shared files. After updating them, the
-sync creates managed symlinks in `~/.agents/skills` for Codex, using each
-plugin's actual installed version. Only enabled user plugins from
-`blaise-skills` are shared; desktop skills follow the existing per-box plugin
-choice. Unmanaged skills are preserved and conflicts are reported. The sync
-also refreshes its own stable executable from the updated plugin, so future
+The sync updates Claude's and Codex's plugins from GitHub independently. Codex
+needs no separate install step: the first run adds the marketplace to Codex and
+installs the plugins Claude has. Add `desktop` to Codex on a desktop box the
+same way as for Claude, with `codex plugin add desktop@blaise-skills`. The sync
+also refreshes its own stable executable from the updated repo, so future
 script changes roll out through the same hourly timer. Python 3 is required.
 
 Claude Code's background auto-update refreshes marketplaces and installed

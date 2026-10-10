@@ -15,7 +15,6 @@ import sys
 import tempfile
 
 MARKETPLACE = "blaise-skills"
-SOURCE = "https://github.com/BlaiseBaptist/claude-skills.git"
 
 
 def output(command):
@@ -34,16 +33,22 @@ def update_claude():
 
 
 def update_codex(bootstrap):
-    """Reinstall Codex's plugins from its refreshed marketplace snapshot.
+    """Give Codex its plugins and return their names.
 
-    Plugins without a manifest version install as "local", so a marketplace
-    upgrade alone leaves the installed copy stale. A box with none yet gets the
-    plugins Claude has, or t3-fleet.
+    The marketplace upgrade already refreshed installed plugins. A box with
+    none yet gets the plugins Claude has, or t3-fleet.
     """
+    marketplaces = json.loads(output(["codex", "plugin", "marketplace", "list", "--json"]))["marketplaces"]
+    if not any(m["name"] == MARKETPLACE for m in marketplaces):
+        # Handed over from the previous sync, which never added it. The new
+        # runner, installed below, adds it on the next run.
+        return []
     installed = json.loads(output(["codex", "plugin", "list", "--json"]))["installed"]
-    names = [p["name"] for p in installed if p["marketplaceName"] == MARKETPLACE] or bootstrap or ["t3-fleet"]
-    for name in names:
-        subprocess.run(["codex", "plugin", "add", name + "@" + MARKETPLACE], check=True)
+    names = [p["name"] for p in installed if p["marketplaceName"] == MARKETPLACE]
+    if not names:
+        names = bootstrap or ["t3-fleet"]
+        for name in names:
+            subprocess.run(["codex", "plugin", "add", name + "@" + MARKETPLACE], check=True)
     return names
 
 
@@ -89,7 +94,10 @@ def main():
     codex_ok = True
     if shutil.which("codex"):
         try:
-            print("Codex plugins: " + ", ".join(update_codex(claude_names)))
+            codex_names = update_codex(claude_names)
+            # Keep the old links until Codex has its own copy.
+            codex_ok = bool(codex_names)
+            print("Codex plugins: " + (", ".join(codex_names) or "none yet"))
         except (subprocess.CalledProcessError, KeyError, ValueError) as error:
             print("Codex plugin update failed: %s" % error, file=sys.stderr)
             failed = True

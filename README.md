@@ -38,33 +38,35 @@ loaded skill. Both harnesses supply its absolute path. Shell examples use
 `SKILL_DIR` for that directory; do not depend on Claude-specific variable
 expansion or tool names for a shared workflow.
 
-## One installed set for both harnesses
+## Claude and Codex
 
-Claude loads the versioned plugin files normally. The existing sync links each
-enabled, user-installed `blaise-skills` skill into `~/.agents/skills` for
-Codex. Both harnesses read the same `SKILL.md`, scripts, and references; there
-is no second authored copy. Links advance to the actual installed plugin
-version after each update. Desktop skills are shared only on boxes where that
-plugin is installed and enabled.
+The repo is a plugin marketplace for both harnesses. Claude reads
+`.claude-plugin/marketplace.json` and each plugin's `.claude-plugin/plugin.json`;
+Codex reads `.agents/plugins/marketplace.json` and `.codex-plugin/plugin.json`.
+Both manifests point at the same `skills/` folders, so there is one authored
+copy.
 
-The sync owns only links recorded in
-`~/.local/state/blaise-skills/shared-links.json`. It preserves unrelated skills,
-reports name collisions, and removes its own links when a plugin is disabled
-or uninstalled. Claude's other marketplaces and box-local skills remain
-independent. Do not duplicate these shared skills under `~/.claude/skills`,
-which would make Claude load them twice.
+`~/.local/bin/claude-skills-sync` updates each harness from GitHub through its
+own plugin system, and a failure in one doesn't stop the other. On a box whose
+Codex has no `blaise-skills` plugins yet, it installs the ones Claude has, or
+`t3-fleet`. It also keeps itself current from the updated repo. Requires
+Python 3; Codex need not be running.
 
-Deploy `plugins/t3-fleet/skills/t3-fleet-onboard/scripts/claude-skills-sync.sh`
-to the existing `~/.local/bin/claude-skills-sync` once to bootstrap the bridge.
-Afterwards the sync refreshes that stable executable from the updated plugin
-automatically. It requires Python 3 and Claude Code; Codex need not be running.
+Earlier versions linked skills into `~/.agents/skills` for Codex instead. The
+first run of this sync hands over from that one and removes only the links it
+recorded in `~/.local/state/blaise-skills/shared-links.json`, once Codex has
+its own install. Other links there, such as Claude.ai's synced document
+skills, are left alone. Do not duplicate these skills under `~/.claude/skills`
+or `~/.agents/skills`, which would make a harness load them twice.
+
 New sessions load the new skills. Restart an existing agent if discovery is
 stale; no T3 server restart is needed.
 
 ## Versioning
 
 No `version` field in any `plugin.json`, so each plugin's version resolves to
-this repo's commit SHA and every push reaches the fleet on the next sync. Add a
+this repo's commit SHA for Claude, and Codex refreshes its installed copy on
+every marketplace upgrade. Every push reaches the fleet on the next sync. Add a
 `version` to a `plugin.json` to hold boxes still until you bump it.
 
 Sync runs hourly from a systemd user timer on Linux (`claude-skills-sync.timer`)
@@ -73,5 +75,5 @@ see the `t3-fleet-onboard` skill. Claude Code's own background auto-update fires
 after a random delay of up to ten minutes, and T3-launched turns are usually
 shorter than that, so it misses most of them.
 
-Validate link ownership and update behavior with
+Validate the sync with
 `python3 -m unittest discover -s tests`.

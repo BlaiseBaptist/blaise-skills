@@ -11,12 +11,7 @@ authentication and configuration. No T3 source edits or server restarts are
 needed. The helper currently supports **T3 0.0.45** and Python 3.
 
 Set `SKILL_DIR` in your shell to the directory containing the loaded
-`SKILL.md`, using the absolute skill path supplied by your harness. With the
-shared sync, both agents can also use:
-
-```sh
-SKILL_DIR="$HOME/.agents/skills/t3-fleet-delegate"
-```
+`SKILL.md`, using the absolute skill path supplied by your harness.
 
 Claude invokes this skill as `/t3-fleet:t3-fleet-delegate`; Codex invokes it as
 `$t3-fleet:t3-fleet-delegate`. Both read the same files. The helper is
