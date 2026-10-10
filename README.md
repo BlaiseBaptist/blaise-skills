@@ -1,4 +1,4 @@
-# claude-skills
+# blaise-skills
 
 Blaise's shared Claude Code and Codex skills, published as a plugin marketplace
 named `blaise-skills` and installed on the T3 Code fleet.
@@ -6,7 +6,7 @@ named `blaise-skills` and installed on the T3 Code fleet.
 ## Install
 
 ```sh
-claude plugin marketplace add https://github.com/BlaiseBaptist/claude-skills.git
+claude plugin marketplace add https://github.com/BlaiseBaptist/blaise-skills.git
 claude plugin install t3-fleet@blaise-skills --scope user
 ```
 

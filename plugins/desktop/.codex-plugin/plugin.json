@@ -2,7 +2,7 @@
   "name": "desktop",
   "description": "Sway/Wayland desktop helpers. Only useful on a box with a display.",
   "author": { "name": "Blaise Baptist" },
-  "repository": "https://github.com/BlaiseBaptist/claude-skills",
+  "repository": "https://github.com/BlaiseBaptist/blaise-skills",
   "license": "MIT",
   "skills": "./skills/"
 }

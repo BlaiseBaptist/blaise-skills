@@ -11,7 +11,7 @@
 # installs. Reach for all three; the missing ones cost nothing.
 export PATH="$HOME/.local/bin:$HOME/.local/share/t3-node/bin:/opt/homebrew/bin:$PATH"
 
-source=https://github.com/BlaiseBaptist/claude-skills.git
+source=https://github.com/BlaiseBaptist/blaise-skills.git
 status=0
 root=
 

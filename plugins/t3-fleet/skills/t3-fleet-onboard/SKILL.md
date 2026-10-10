@@ -253,7 +253,7 @@ look perfectly healthy while being useless. The fix is an interactive login:
 ## Skills repo
 
 Skills reach `$H` as plugins from the `blaise-skills` marketplace
-(`https://github.com/BlaiseBaptist/claude-skills`, public, no auth needed).
+(`https://github.com/BlaiseBaptist/blaise-skills`, public, no auth needed).
 `~/.claude/skills` is no longer a clone of that repo; it holds box-local
 skills.
 
@@ -266,7 +266,7 @@ boxes have no GitHub SSH key.
 ssh -o BatchMode=yes blaise@$H '
   set -e
   export PATH="$HOME/.local/bin:/opt/homebrew/bin:$PATH"
-  claude plugin marketplace add https://github.com/BlaiseBaptist/claude-skills.git
+  claude plugin marketplace add https://github.com/BlaiseBaptist/blaise-skills.git
   claude plugin install t3-fleet@blaise-skills --scope user
   claude plugin list'
 ```
