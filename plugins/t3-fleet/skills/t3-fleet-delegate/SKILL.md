@@ -20,8 +20,7 @@ delegate parts of it. Delegate when:
   back.
 - **A second opinion matters.** You wrote or decided something consequential
   (a design, a risky change, a release). A different model family reviewing
-  it cold catches different mistakes. Opus can ask Sol to review; Sol can't
-  ask Opus.
+  it cold catches different mistakes: Sol for Opus's work, Opus for Sol's.
 - **The work splits.** Two or more pieces touch different files or repos and
   don't need each other's results. Run them in parallel, each in its own
   worktree.
@@ -51,10 +50,8 @@ mechanical edits go to Luna. When Sol's work comes back, Opus reviews it.
 | 4 | Luna | `codex` | `gpt-6-luna` | Mechanical changes: renames, bulk edits, follow-the-pattern rewrites |
 | 5 | Haiku | `claudeAgent` | `claude-haiku-5-5` | Lookups and smoke checks |
 
-The split is a default, not a rule; choose as you see fit. The one hard rule:
-**delegate only to your own tier or below, never up.** Sol never delegates to
-Opus, and Luna never to Sonnet or Sol. If a task turns out to need a stronger
-model than you may delegate to, say so in your result instead.
+The split is a default, not a rule; choose as you see fit. Delegating to a
+stronger model than yourself is fine when the task needs it.
 
 Haiku 5.5 isn't in T3 0.0.45's model picker, but T3 passes the ID through and
 it runs.
@@ -111,8 +108,7 @@ Leave out:
   the approach, offer it as a suggestion and ask the child to say where it went
   another way and why.
 - **Blanket prohibitions.** No caps on things the child can judge for itself,
-  such as fetching, reading code, running tests, or delegating further. The
-  child follows this skill's tier rule on its own.
+  such as fetching, reading code, running tests, or delegating further.
 
 A good brief is usually well under a page. If yours is growing past that,
 either point the child at a file on its box that holds the context, or split
