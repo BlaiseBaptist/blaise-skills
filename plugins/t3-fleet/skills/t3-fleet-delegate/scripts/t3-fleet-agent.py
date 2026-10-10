@@ -361,6 +361,8 @@ def main():
             parent, selection = found
             if model_name(selection) not in ("opus", "sol"):
                 parser.error("only Opus and Sol delegate; do this task yourself")
+            if MODELS[args.model][0] == selection.get("instanceId"):
+                parser.error("%s is your own provider's model; use your own subagents for it" % args.model)
             # Opus and Sol overestimate what a child needs: take one level off.
             effort = EFFORTS[max(0, EFFORTS.index(effort) - 1)]
         prompt = sys.stdin.read().strip()

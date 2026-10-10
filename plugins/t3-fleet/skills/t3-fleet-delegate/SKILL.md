@@ -8,9 +8,12 @@ description: For Opus and Sol. Hand work to another agent (Opus, Sol, Sonnet, Lu
 You don't need permission to delegate within the user's task. Tell the user in
 one line what you delegated, where, and to whom.
 
-Default split: **Opus plans, Sol executes, Luna does mechanical changes**,
-Haiku does lookups. Sonnet stands in for Luna. If Sol is unavailable, Opus
-executes, handing parts to Sonnet. Choose as you see fit.
+Default split: **Opus plans, Sol executes, Luna does mechanical changes**.
+Sonnet stands in for Luna. If Sol is unavailable, Opus executes, handing parts
+to Sonnet. Choose as you see fit.
+
+This skill only crosses providers. For models from your own provider, use your
+harness's own subagents; the helper refuses them.
 
 `--effort` is what you judge the task needs; the helper runs the child one
 level lower. Models are `opus`, `sol`, `sonnet`, `luna`, `haiku`.
