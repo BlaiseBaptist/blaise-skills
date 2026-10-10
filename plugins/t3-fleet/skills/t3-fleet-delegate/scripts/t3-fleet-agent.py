@@ -220,6 +220,10 @@ def main():
         options = json.loads(args.options)
         if not isinstance(options, dict) or any(not isinstance(v, (str, bool)) for v in options.values()):
             parser.error("--options must map option IDs to string or boolean values")
+        # Fleet rule: max effort and everything above it are off limits.
+        forbidden = {"max", "ultra", "ultrathink", "ultracode"}
+        if any(options.get(key) in forbidden for key in ("effort", "reasoningEffort")):
+            parser.error("max effort and above are forbidden; use xhigh or lower")
         request.update(cwd=args.cwd, provider=args.provider, model=args.model,
                        options=[{"id": k, "value": v} for k, v in options.items()],
                        runtimeMode=args.runtime_mode, interactionMode=args.interaction_mode,
