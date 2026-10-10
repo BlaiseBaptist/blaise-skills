@@ -8,10 +8,8 @@ description: For Opus and Sol. Hand work to the other one (Opus to Sol, Sol to O
 You don't need permission to delegate within the user's task. Tell the user in
 one line what you delegated, where, and to whom.
 
-Default split: **Opus plans, Sol executes.** Smaller work stays inside each
-provider through its own subagents: Sol hands mechanical changes to Luna, and
-Opus uses Sonnet and Haiku. If Sol is unavailable, Opus executes, handing parts
-to Sonnet. Choose as you see fit.
+Default split: **Opus plans, Sol executes.** If Sol is unavailable, Opus
+executes. Choose as you see fit.
 
 This skill is only for Opus and Sol threads; the helper refuses anything else.
 `--effort` is what you judge the task needs; the helper runs the child one
@@ -37,7 +35,7 @@ The child has the same `AGENTS.md`, skills, and git setup as you, but not your
 conversation. Give it the goal and why, what you already know, where to work,
 and what done looks like. Add only the limits it couldn't infer, with reasons.
 Don't restate rules it already loads, script its steps, or forbid things it
-can judge. Trust it.
+can judge, including which subagents it uses. Trust it.
 
 ## Results
 
