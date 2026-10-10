@@ -1,6 +1,6 @@
 ---
 name: t3-fleet-delegate
-description: For Opus and Sol. Hand work to another agent (Opus, Sol, Sonnet, Luna, Haiku) as a real T3 thread on a fleet box; your thread gets a message when it finishes. Use on your own initiative whenever delegating would help, such as executing a settled plan, an independent review, parallel work, work on another box, or a long job.
+description: For Opus and Sol. Hand work to the other provider's agent (Opus, Sol, or Sonnet) as a real T3 thread on a fleet box; your thread gets a message when it finishes. Use on your own initiative whenever delegating would help, such as executing a settled plan, an independent review, parallel work, work on another box, or a long job.
 ---
 
 # Delegate to another T3 agent
@@ -8,15 +8,16 @@ description: For Opus and Sol. Hand work to another agent (Opus, Sol, Sonnet, Lu
 You don't need permission to delegate within the user's task. Tell the user in
 one line what you delegated, where, and to whom.
 
-Default split: **Opus plans, Sol executes, Luna does mechanical changes**.
-Sonnet stands in for Luna. If Sol is unavailable, Opus executes, handing parts
+Default split: **Opus plans, Sol executes.** Smaller work stays inside each
+provider through its own subagents: Sol hands mechanical changes to Luna, and
+Opus uses Sonnet and Haiku. If Sol is unavailable, Opus executes, handing parts
 to Sonnet. Choose as you see fit.
 
-This skill only crosses providers. For models from your own provider, use your
-harness's own subagents; the helper refuses them.
+This skill only crosses providers; the helper refuses your own provider's
+models.
 
 `--effort` is what you judge the task needs; the helper runs the child one
-level lower. Models are `opus`, `sol`, `sonnet`, `luna`, `haiku`.
+level lower. Models are `opus`, `sol`, and `sonnet`.
 
 ```sh
 python3 "$SKILL_DIR/scripts/t3-fleet-agent.py" archlinux projects
