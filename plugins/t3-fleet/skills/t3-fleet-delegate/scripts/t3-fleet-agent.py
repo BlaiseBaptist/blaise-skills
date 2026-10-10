@@ -37,7 +37,7 @@ MODELS = {
     "opus": ("claudeAgent", "claude-opus-5-5", "effort"),
     "sol": ("codex", "gpt-6.1-sol", "reasoningEffort"),
 }
-# Other models are only subagents within their own provider, never T3 threads.
+# T3 threads are only Opus to Sol and Sol to Opus.
 # max and everything above it are never used.
 EFFORTS = ("low", "medium", "high", "xhigh")
 TERMINAL = ("completed", "interrupted", "error")
@@ -360,7 +360,7 @@ def main():
             if model_name(selection) not in ("opus", "sol"):
                 parser.error("only Opus and Sol delegate; do this task yourself")
             if MODELS[args.model][0] == selection.get("instanceId"):
-                parser.error("%s is your own provider's model; use your own subagents for it" % args.model)
+                parser.error("T3 threads are only Opus to Sol and Sol to Opus")
             # Opus and Sol overestimate what a child needs: take one level off.
             effort = EFFORTS[max(0, EFFORTS.index(effort) - 1)]
         prompt = sys.stdin.read().strip()
