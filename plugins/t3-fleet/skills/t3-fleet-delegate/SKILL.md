@@ -1,6 +1,6 @@
 ---
 name: t3-fleet-delegate
-description: Use whenever handing work from Opus to Sol or Sol to Opus would help.
+description: "Use when delegating between Opus and Sol helps."
 ---
 
 # Delegate to another T3 agent

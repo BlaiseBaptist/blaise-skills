@@ -1,6 +1,6 @@
 ---
 name: screenshot
-description: Inspect or capture screenshots on Blaise's Sway/Wayland desktop when verifying a GUI change or reading a screenshot he captured.
+description: "Use for screenshots on Blaise's Sway/Wayland desktop."
 ---
 
 # Screenshot
