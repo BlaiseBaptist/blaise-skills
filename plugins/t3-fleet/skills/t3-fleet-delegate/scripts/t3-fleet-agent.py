@@ -36,9 +36,8 @@ FLEET = {
 MODELS = {
     "opus": ("claudeAgent", "claude-opus-5-5", "effort"),
     "sol": ("codex", "gpt-6.1-sol", "reasoningEffort"),
-    "sonnet": ("claudeAgent", "claude-sonnet-5-5", "effort"),
 }
-# Luna and Haiku are only subagents within their own provider, never T3 threads.
+# Other models are only subagents within their own provider, never T3 threads.
 # max and everything above it are never used.
 EFFORTS = ("low", "medium", "high", "xhigh")
 TERMINAL = ("completed", "interrupted", "error")
