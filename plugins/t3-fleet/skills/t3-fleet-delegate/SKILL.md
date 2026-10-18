@@ -13,8 +13,7 @@ executes. Choose as you see fit.
 
 This skill is only for Opus and Sol threads; the helper refuses anything else.
 Either can start Opus or Sol, including its own model.
-`--effort` is what you judge the task needs; the helper runs the child one
-level lower.
+`--effort` is what you judge the task needs, up to `xhigh`; max is never used.
 
 ```sh
 python3 "$SKILL_DIR/scripts/t3-fleet-agent.py" archlinux projects

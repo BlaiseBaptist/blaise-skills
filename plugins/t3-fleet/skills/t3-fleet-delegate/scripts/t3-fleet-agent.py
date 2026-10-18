@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Control real T3 threads via fleet SSH and T3 0.1.0's local server API.
 
-Enforces the fleet's delegation rules: only Opus and Sol delegate, effort is
-one level below what they ask for, and max effort is never used. When the
+Enforces the fleet's delegation rules: only Opus and Sol delegate, and max effort
+is never used. When the
 child finishes, its parent's T3 thread gets a message.
 
 No third-party dependencies, stored credentials, or T3 source changes.
@@ -427,7 +427,7 @@ def main():
     start.add_argument("--cwd", required=True, help="Existing project directory on the TARGET box")
     start.add_argument("--model", required=True, choices=MODELS)
     start.add_argument("--effort", required=True, choices=EFFORTS,
-                       help="Effort you judge the task needs; Opus and Sol callers get one level less")
+                       help="Effort you judge the task needs; max is never used")
     start.add_argument("--plan", action="store_true", help="Start the child in plan mode")
     start.add_argument("--title", required=True)
     start.add_argument("--worktree", help="Existing git worktree on the target; otherwise uses the project checkout")
@@ -455,8 +455,6 @@ def main():
             parent, selection = found
             if model_name(selection) not in ("opus", "sol"):
                 parser.error("only Opus and Sol delegate; do this task yourself")
-            # Opus and Sol overestimate what a child needs: take one level off.
-            effort = EFFORTS[max(0, EFFORTS.index(effort) - 1)]
         prompt = sys.stdin.read().strip()
         if not prompt:
             parser.error("Provide a nonempty task prompt on stdin")
