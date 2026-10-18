@@ -12,6 +12,7 @@ Default split: **Opus plans, Sol executes.** If Sol is unavailable, Opus
 executes. Choose as you see fit.
 
 This skill is only for Opus and Sol threads; the helper refuses anything else.
+Either can start Opus or Sol, including its own model.
 `--effort` is what you judge the task needs; the helper runs the child one
 level lower.
 

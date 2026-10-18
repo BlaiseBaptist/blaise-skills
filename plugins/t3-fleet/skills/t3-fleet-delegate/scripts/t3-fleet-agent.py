@@ -37,7 +37,7 @@ MODELS = {
     "opus": ("claudeAgent", "claude-opus-5-5", "effort"),
     "sol": ("codex", "gpt-6.1-sol", "reasoningEffort"),
 }
-# T3 threads are only Opus to Sol and Sol to Opus.
+# Opus and Sol may start either model, including their own.
 # max and everything above it are never used.
 EFFORTS = ("low", "medium", "high", "xhigh")
 # V2 run statuses that end a run; "error" is a provider session failure.
@@ -455,8 +455,6 @@ def main():
             parent, selection = found
             if model_name(selection) not in ("opus", "sol"):
                 parser.error("only Opus and Sol delegate; do this task yourself")
-            if MODELS[args.model][0] == selection.get("instanceId"):
-                parser.error("T3 threads are only Opus to Sol and Sol to Opus")
             # Opus and Sol overestimate what a child needs: take one level off.
             effort = EFFORTS[max(0, EFFORTS.index(effort) - 1)]
         prompt = sys.stdin.read().strip()
