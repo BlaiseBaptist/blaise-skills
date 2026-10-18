@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Control real T3 threads via fleet SSH and T3 0.0.45's local HTTP API.
+"""Control real T3 threads via fleet SSH and T3 0.1.0's local server API.
 
 Enforces the fleet's delegation rules: only Opus and Sol delegate, effort is
 one level below what they ask for, and max effort is never used. When the
@@ -10,7 +10,7 @@ No third-party dependencies, stored credentials, or T3 source changes.
 
 import argparse
 import base64
-import datetime
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -40,12 +40,11 @@ MODELS = {
 # T3 threads are only Opus to Sol and Sol to Opus.
 # max and everything above it are never used.
 EFFORTS = ("low", "medium", "high", "xhigh")
-TERMINAL = ("completed", "interrupted", "error")
+# V2 run statuses that end a run; "error" is a provider session failure.
+TERMINAL = ("completed", "interrupted", "failed", "cancelled", "rolled_back", "error")
+VERSION = "0.1.0"
+PORT = 3773
 STATE_DIR = Path.home() / ".local/state/t3-fleet-agent"
-
-
-def now():
-    return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 def local_cli():
@@ -56,7 +55,9 @@ def local_cli():
     else:
         # Desktop app: use its installed version, not an unrelated npm release.
         import plistlib
-        bundles = [Path("/Applications/T3 Code (Alpha).app"), Path.home() / "Applications/T3 Code (Alpha).app"]
+        # 0.1.0 renamed the bundle from (Alpha) to (Beta).
+        bundles = [root / ("T3 Code (%s).app" % channel) for channel in ("Beta", "Alpha")
+                   for root in (Path("/Applications"), Path.home() / "Applications")]
         bundle = next((p for p in bundles if p.exists()), None)
         if bundle is None:
             raise RuntimeError("Cannot locate the T3 desktop app or service state")
@@ -65,8 +66,8 @@ def local_cli():
     cli = runtime / "versions" / version / "t3"
     if not cli.is_file():
         raise RuntimeError("The running version's T3 executable is missing")
-    if version != "0.0.45":
-        raise RuntimeError("This helper supports T3 0.0.45; recheck the API before using another version")
+    if version != VERSION:
+        raise RuntimeError("This helper supports T3 %s; recheck the API before using another version" % VERSION)
     return str(cli)
 
 
@@ -89,14 +90,16 @@ def caller():
     session = os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("CODEX_THREAD_ID")
     if not session:
         return None
-    # T3 records each provider session in its resume cursor; read-only.
-    db = Path.home() / ".t3/userdata/state.sqlite"
+    # V2 records each provider's native session in its provider thread; read-only.
+    db = Path.home() / ".t3/userdata/statev2.sqlite"
     try:
         with sqlite3.connect("file:%s?mode=ro" % db, uri=True, timeout=5) as conn:
             row = conn.execute(
-                "SELECT t.thread_id, t.model_selection_json FROM provider_session_runtime r"
-                " JOIN projection_threads t ON t.thread_id = r.thread_id"
-                " WHERE instr(r.resume_cursor_json, ?) > 0", (session,)).fetchone()
+                "SELECT t.thread_id, json_extract(t.payload_json, '$.modelSelection')"
+                " FROM orchestration_v2_projection_provider_threads p"
+                " JOIN orchestration_v2_projection_threads t ON t.thread_id = p.thread_id"
+                " WHERE instr(p.payload_json, ?) > 0 AND t.deleted_at IS NULL"
+                " ORDER BY p.updated_at DESC", (session,)).fetchone()
     except sqlite3.Error as error:
         raise RuntimeError("Cannot read this box's T3 state to identify the caller: %s" % error) from None
     if row is None:
@@ -104,14 +107,17 @@ def caller():
     return row[0], json.loads(row[1])
 
 
-def summarize(thread):
+def summarize(projection):
     """State plus the child's final answer, which is its report. Never the transcript."""
-    turn = thread.get("latestTurn") or {}
-    session = thread.get("session") or {}
-    state = turn.get("state", "pending")
-    if session.get("status") == "error":
+    thread = projection["thread"]
+    runs = sorted(projection.get("runs", []), key=lambda run: run["ordinal"])
+    state = runs[-1]["status"] if runs else "pending"
+    sessions = sorted(projection.get("providerSessions", []), key=lambda s: s["updatedAt"])
+    session = sessions[-1] if sessions else {}
+    if session.get("status") == "error" and state not in TERMINAL:
         state = "error"
-    answers = [m["text"] for m in thread.get("messages", []) if m.get("role") == "assistant" and m.get("text")]
+    answers = [m["text"] for m in projection.get("messages", [])
+               if m.get("role") == "assistant" and m.get("text") and not m.get("streaming")]
     return {
         "threadId": thread["id"],
         "title": thread["title"],
@@ -119,8 +125,99 @@ def summarize(thread):
         "worktreePath": thread.get("worktreePath"),
         "state": state,
         "lastError": session.get("lastError"),
-        "report": answers[-1] if answers else None,
+        "report": answers[-1] if answers and state in TERMINAL else None,
     }
+
+
+class Rpc:
+    """Minimal WebSocket client for T3's Effect RPC endpoint (JSON frames).
+
+    0.1.0 removed HTTP dispatch; commands go over /ws like the web client's.
+    """
+
+    def __init__(self, token):
+        self.sock = socket.create_connection(("127.0.0.1", PORT), timeout=30)
+        key = base64.b64encode(os.urandom(16)).decode()
+        self.sock.sendall(("GET /ws?orchestrationProtocol=2 HTTP/1.1\r\nHost: 127.0.0.1:%d\r\n"
+                           "Upgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: %s\r\n"
+                           "Sec-WebSocket-Version: 13\r\nAuthorization: Bearer %s\r\n\r\n"
+                           % (PORT, key, token)).encode())
+        head = b""
+        while b"\r\n\r\n" not in head:
+            chunk = self.sock.recv(4096)
+            if not chunk:
+                raise RuntimeError("T3 closed the WebSocket during the handshake")
+            head += chunk
+        head, self.buffer = head.split(b"\r\n\r\n", 1)
+        accept = base64.b64encode(hashlib.sha1((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode()).digest())
+        if not head.startswith(b"HTTP/1.1 101") or accept not in head:
+            raise RuntimeError("T3 refused the WebSocket: " + head.split(b"\r\n", 1)[0].decode(errors="replace"))
+        self.next_id = 0
+
+    def _read(self, n):
+        while len(self.buffer) < n:
+            chunk = self.sock.recv(65536)
+            if not chunk:
+                raise RuntimeError("T3 closed the WebSocket")
+            self.buffer += chunk
+        data, self.buffer = self.buffer[:n], self.buffer[n:]
+        return data
+
+    def _send(self, opcode, payload):
+        mask = os.urandom(4)
+        n = len(payload)
+        header = bytes([0x80 | opcode])
+        if n < 126:
+            header += bytes([0x80 | n])
+        elif n < 65536:
+            header += bytes([0x80 | 126]) + n.to_bytes(2, "big")
+        else:
+            header += bytes([0x80 | 127]) + n.to_bytes(8, "big")
+        self.sock.sendall(header + mask + bytes(b ^ mask[i % 4] for i, b in enumerate(payload)))
+
+    def _message(self):
+        parts = []
+        while True:
+            first, second = self._read(2)
+            n = second & 0x7F
+            if n == 126:
+                n = int.from_bytes(self._read(2), "big")
+            elif n == 127:
+                n = int.from_bytes(self._read(8), "big")
+            payload = self._read(n)
+            opcode = first & 0x0F
+            if opcode == 8:
+                raise RuntimeError("T3 closed the WebSocket")
+            if opcode == 9:
+                self._send(10, payload)
+            elif opcode in (0, 1, 2):
+                parts.append(payload)
+                if first & 0x80:
+                    return json.loads(b"".join(parts))
+
+    def call(self, tag, payload):
+        self.next_id += 1
+        request_id = str(self.next_id)
+        self._send(1, json.dumps({"_tag": "Request", "id": request_id, "tag": tag,
+                                  "payload": payload, "headers": []}).encode())
+        while True:
+            message = self._message()
+            for item in message if isinstance(message, list) else [message]:
+                if item.get("_tag") == "Ping":
+                    self._send(1, b'{"_tag":"Pong"}')
+                elif item.get("_tag") == "Defect":
+                    raise RuntimeError("T3 RPC defect: %s" % json.dumps(item.get("defect"))[:2000])
+                elif item.get("_tag") == "Exit" and str(item.get("requestId")) == request_id:
+                    exit = item["exit"]
+                    if exit.get("_tag") == "Success":
+                        return exit.get("value")
+                    raise RuntimeError("T3 %s failed: %s" % (tag, json.dumps(exit.get("cause"))[:2000]))
+
+    def close(self):
+        try:
+            self._send(8, b"")
+        finally:
+            self.sock.close()
 
 
 def worker(request):
@@ -134,10 +231,11 @@ def worker(request):
     auth = json.loads(issued.stdout)
     token = auth["token"]
 
-    def api(path, payload=None):
-        data = None if payload is None else json.dumps(payload).encode()
-        req = urllib.request.Request("http://127.0.0.1:3773" + path, data=data,
-                                     headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"})
+    rpc = None
+
+    def api(path):
+        req = urllib.request.Request("http://127.0.0.1:%d%s" % (PORT, path),
+                                     headers={"Authorization": "Bearer " + token, "x-t3-orchestration-protocol": "2"})
         try:
             # Keep a local credential local, even when a box exports HTTP_PROXY.
             with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(req, timeout=15) as response:
@@ -146,17 +244,25 @@ def worker(request):
             detail = error.read().decode(errors="replace").replace(token, "[REDACTED]")
             raise RuntimeError("T3 HTTP %s: %s" % (error.code, detail[:2000])) from None
 
-    def dispatch(payload):
-        return api("/api/orchestration/dispatch", payload)
+    def rpc_call(tag, payload):
+        nonlocal rpc
+        if rpc is None:
+            rpc = Rpc(token)
+        try:
+            return rpc.call(tag, payload)
+        except RuntimeError as error:
+            raise RuntimeError(str(error).replace(token, "[REDACTED]")) from None
+
+    def dispatch(command):
+        return rpc_call("orchestration.dispatchCommand", command)
 
     def read(thread_id):
-        return api("/api/orchestration/threads/" + thread_id)["thread"]
+        return api("/api/orchestration/threads/" + thread_id)["projection"]
 
-    def send(thread, message_id, text, command_id):
-        dispatch({"type": "thread.turn.start", "commandId": command_id, "threadId": thread["id"],
-                  "message": {"messageId": message_id, "role": "user", "text": text, "attachments": []},
-                  "modelSelection": thread["modelSelection"], "runtimeMode": thread["runtimeMode"],
-                  "interactionMode": thread["interactionMode"], "createdAt": now()})
+    def send(thread_id, text):
+        dispatch({"type": "message.dispatch", "createdBy": "agent", "creationSource": "server", "commandId": str(uuid.uuid4()), "threadId": thread_id,
+                  "messageId": str(uuid.uuid4()), "text": text, "attachments": [],
+                  "deliveryIntent": "auto", "dispatchMode": {"type": "queue_after_active"}})
 
     try:
         action = request["action"]
@@ -180,42 +286,36 @@ def worker(request):
             branch_result = subprocess.run(["git", "-C", worktree or str(root), "symbolic-ref", "--short", "HEAD"],
                                            capture_output=True, text=True, timeout=10)
             branch = branch_result.stdout.strip() if branch_result.returncode == 0 else None
+            strategy = {"type": "existing_worktree", "worktreePath": worktree} if worktree else {"type": "root"}
+            if branch:
+                strategy["branch"] = branch
             selection = request["selection"]
             namespace = uuid.uuid5(uuid.NAMESPACE_URL, "t3-fleet-agent:" + request["requestId"])
             thread_id = str(uuid.uuid5(namespace, "thread"))
-            message_id = str(uuid.uuid5(namespace, "message"))
-            try:
-                thread = read(thread_id)
-            except RuntimeError as error:
-                if "T3 HTTP 404:" not in str(error):
-                    raise
-                thread = None
-            if thread is None:
-                dispatch({"type": "thread.create", "commandId": str(uuid.uuid5(namespace, "create")),
-                          "threadId": thread_id, "projectId": project["id"], "title": request["title"],
-                          "modelSelection": selection, "runtimeMode": request["runtimeMode"],
-                          "interactionMode": request["interactionMode"], "branch": branch,
-                          "worktreePath": worktree, "createdAt": now()})
-                thread = read(thread_id)
-            elif (thread["projectId"] != project["id"] or thread["modelSelection"] != selection
-                  or thread.get("worktreePath") != worktree or thread["runtimeMode"] != request["runtimeMode"]
-                  or thread["interactionMode"] != request["interactionMode"]):
+            # T3 keeps a receipt per launch command ID, so a retried launch replays, not duplicates.
+            launched = rpc_call("orchestration.launchThread", {
+                "commandId": str(uuid.uuid5(namespace, "launch")), "creationSource": "server",
+                "threadId": thread_id, "projectId": project["id"], "title": request["title"],
+                "modelSelection": selection, "runtimeMode": request["runtimeMode"],
+                "interactionMode": request["interactionMode"], "workspaceStrategy": strategy,
+                "initialMessage": {"messageId": str(uuid.uuid5(namespace, "message")),
+                                   "text": request["prompt"], "attachments": []}})
+            thread = launched["projection"]["thread"]
+            if (thread["projectId"] != project["id"] or thread["modelSelection"] != selection
+                    or thread["runtimeMode"] != request["runtimeMode"]
+                    or thread["interactionMode"] != request["interactionMode"]):
                 raise RuntimeError("Request ID already belongs to a thread with different settings")
-            existing = next((m for m in thread.get("messages", []) if m["id"] == message_id), None)
-            if existing and existing.get("text") != request["prompt"]:
-                raise RuntimeError("Request ID already belongs to a different prompt")
-            if not existing:
-                send(thread, message_id, request["prompt"], str(uuid.uuid5(namespace, "start")))
         else:
             thread_id = request["threadId"]
             if action == "send":
-                send(read(thread_id), str(uuid.uuid4()), request["prompt"], str(uuid.uuid4()))
-            elif action in ("interrupt", "archive", "unarchive"):
-                command = {"type": "thread.turn.interrupt" if action == "interrupt" else "thread." + action,
-                           "commandId": str(uuid.uuid4()), "threadId": thread_id}
-                if action == "interrupt":
-                    command["createdAt"] = now()
-                dispatch(command)
+                send(thread_id, request["prompt"])
+            elif action == "interrupt":
+                runs = [run for run in read(thread_id)["runs"] if run["status"] not in TERMINAL]
+                for run in runs:
+                    dispatch({"type": "run.interrupt", "commandId": str(uuid.uuid4()),
+                              "threadId": thread_id, "runId": run["id"]})
+            elif action in ("archive", "unarchive"):
+                dispatch({"type": "thread." + action, "commandId": str(uuid.uuid4()), "threadId": thread_id})
                 if action == "archive":
                     # Archived threads are hidden from the detail endpoint.
                     return {"threadId": thread_id, "archived": True}
@@ -227,6 +327,8 @@ def worker(request):
                 return result
             time.sleep(min(2, max(0, deadline - time.monotonic())))
     finally:
+        if rpc is not None:
+            rpc.close()
         revoked = subprocess.run([cli, "auth", "session", "revoke", auth["sessionId"]], env=env,
                                  capture_output=True, text=True, timeout=15)
         if revoked.returncode:
