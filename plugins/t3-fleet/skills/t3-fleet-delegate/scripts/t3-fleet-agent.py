@@ -451,6 +451,9 @@ def main():
     if args.action == "start":
         found = caller()
         effort = args.effort
+        if effort == "xhigh":
+            print("warning: xhigh effort is slow and costly; use it only when the task needs it",
+                  file=sys.stderr, flush=True)
         if found is not None:
             parent, selection = found
             if model_name(selection) not in ("opus", "sol"):
