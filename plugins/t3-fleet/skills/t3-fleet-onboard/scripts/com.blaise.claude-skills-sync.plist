@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.blaise.claude-skills-sync</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>HOME_DIR/.local/bin/claude-skills-sync</string>
+  </array>
+  <key>StartInterval</key><integer>3600</integer>
+  <key>RunAtLoad</key><true/>
+  <key>StandardOutPath</key><string>HOME_DIR/Library/Logs/claude-skills-sync.log</string>
+  <key>StandardErrorPath</key><string>HOME_DIR/Library/Logs/claude-skills-sync.log</string>
+</dict>
+</plist>

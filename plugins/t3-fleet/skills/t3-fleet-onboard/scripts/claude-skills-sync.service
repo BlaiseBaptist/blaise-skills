@@ -1,0 +1,6 @@
+[Unit]
+Description=Sync blaise-skills plugins
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/claude-skills-sync
