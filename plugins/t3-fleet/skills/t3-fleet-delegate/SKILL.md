@@ -14,9 +14,10 @@ defaults and examples.
   executes. Choose as you see fit.
 - Always set the effort and service tier in `target.options`; don't rely on
   inherited values or T3's examples.
-  - Effort: pick what the task needs, from `low` to `xhigh`. Never use `max`
-    or anything above it. Use `xhigh` only when the task needs it, because
-    it's slow and costly.
+  - Effort: default to `medium`, and use `low` often, for any task that's
+    routine or clearly specified. Go to `high` only when the task needs it,
+    and `xhigh` rarely, because it's slow and costly. Never use `max` or
+    anything above it.
   - Service tier: standard. Never fast/priority.
 
   | Agent | `providerInstanceId` | `model` | Options |
