@@ -17,12 +17,13 @@ boxes have no GitHub SSH key. Both commands are idempotent.
 
 | Plugin     | Skills                                          | Install on          |
 | ---------- | ----------------------------------------------- | ------------------- |
-| `t3-fleet` | `t3-fleet-onboard`, `t3-fleet-delegate`           | every box         |
+| `t3-fleet` | `t3-fleet-onboard`                               | every box         |
 | `desktop`  | `screenshot`                                    | boxes with a display |
 
 Plugin skills are namespaced: `/t3-fleet:t3-fleet-onboard`, not `/t3-fleet-onboard`.
-Use `/t3-fleet:t3-fleet-delegate` for Opus-to-Sol or Sol-to-Opus T3 subagents.
-In Codex, invoke `$t3-fleet:t3-fleet-delegate` or `$t3-fleet:t3-fleet-onboard`.
+In Codex, invoke `$t3-fleet:t3-fleet-onboard`.
+Agent delegation uses T3 Code's built-in tools and instructions; no custom
+delegation skill is installed.
 
 ## Layout
 
